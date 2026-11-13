@@ -4,197 +4,402 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>台股即時看盤看板 (2330 / 0050 / 2317)</title>
+    <script src="https://jsdelivr.net"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif;
             background-color: #131722;
             color: #d1d4dc;
             padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
             margin-bottom: 20px;
-            padding-bottom: 10px;
+            padding-bottom: 14px;
             border-bottom: 1px solid #2a2e39;
         }
-        h1 {
-            font-size: 22px;
-            color: #ffffff;
-        }
-        .status {
+        h1 { font-size: 20px; color: #ffffff; display: flex; align-items: center; gap: 8px; }
+        .controls { display: flex; align-items: center; gap: 12px; }
+        .status-badge {
             font-size: 13px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: #1e222d;
+            border: 1px solid #2a2e39;
             color: #868993;
         }
-        /* 上方三張報價卡片排版 */
+        .status-badge.ok { color: #26a69a; border-color: rgba(38, 166, 154, 0.4); }
+        .status-badge.err { color: #ef5350; border-color: rgba(239, 83, 80, 0.4); }
+        .btn-refresh {
+            background: #2962ff;
+            color: #fff;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-refresh:hover { background: #1e53e5; }
+        .btn-refresh:disabled { background: #363a45; cursor: not-allowed; }
+
+        /* 卡片區塊 */
         .cards-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 16px;
             margin-bottom: 24px;
         }
         .card {
             background-color: #1e222d;
-            border-radius: 8px;
-            padding: 10px;
-            border: 1px solid #2a2e39;
-            height: 150px;
+            border-radius: 10px;
+            padding: 20px;
+            border: 2px solid #2a2e39;
+            cursor: pointer;
+            transition: all 0.2s;
         }
-        /* 下方大型趨勢圖區塊 */
+        .card:hover { border-color: #434651; }
+        .card.active { border-color: #2962ff; background-color: #232836; }
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .stock-name { font-size: 18px; font-weight: bold; color: #ffffff; }
+        .stock-code { font-size: 13px; color: #868993; background: #131722; padding: 2px 8px; border-radius: 4px; }
+        .stock-price { font-size: 34px; font-weight: bold; margin-bottom: 6px; letter-spacing: 0.5px; }
+        .stock-change { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+        .stock-detail {
+            font-size: 12px;
+            color: #868993;
+            border-top: 1px solid #2a2e39;
+            padding-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* 台灣紅漲綠跌 */
+        .up { color: #ef5350; }
+        .down { color: #26a69a; }
+        .flat { color: #d1d4dc; }
+
+        /* 圖表區塊 */
         .chart-section {
             background-color: #1e222d;
-            border-radius: 8px;
-            padding: 16px;
+            border-radius: 10px;
+            padding: 20px;
             border: 1px solid #2a2e39;
         }
         .chart-header {
             display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
             gap: 10px;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
         }
-        .tab-btn {
-            background-color: #2a2e39;
-            color: #d1d4dc;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            transition: background 0.2s;
-        }
-        .tab-btn:hover {
-            background-color: #363a45;
-        }
-        .tab-btn.active {
-            background-color: #2962ff;
-            color: #ffffff;
-        }
-        #tv-chart-container {
-            width: 100%;
-            height: 500px;
-        }
+        .chart-title { font-size: 17px; color: #ffffff; font-weight: bold; }
+        .chart-sub { font-size: 12px; color: #868993; }
+        .canvas-container { position: relative; height: 380px; width: 100%; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>📈 台股即時追蹤看板</h1>
-        <div class="status">資料來源：TradingView（盤中自動更新）</div>
+        <h1>🇹🇼 台股即時看盤看板</h1>
+        <div class="controls">
+            <span id="status-badge" class="status-badge">初始化連線中...</span>
+            <button id="refresh-btn" class="btn-refresh" onclick="manualRefresh()">立即刷新</button>
+        </div>
     </header>
 
-    <!-- 上方：三檔股票即時報價卡片 -->
+    <!-- 三檔股票報價卡片 -->
     <div class="cards-container">
-        <!-- 2330 台積電 -->
-        <div class="card">
-            <div class="tradingview-widget-container">
-                <div class="tradingview-widget-container__widget"></div>
-                <script type="text/javascript" src="https://tradingview.com" async>
-                {
-                    "symbol": "TWSE:2330",
-                    "width": "100%",
-                    "isTransparent": true,
-                    "colorTheme": "dark",
-                    "locale": "zh_TW"
-                }
-                </script>
+        <div class="card active" id="card-2330" onclick="selectStock('2330')">
+            <div class="stock-header">
+                <span class="stock-name">台積電</span>
+                <span class="stock-code">2330</span>
+            </div>
+            <div class="stock-price" id="price-2330">--</div>
+            <div class="stock-change" id="change-2330">讀取報價中...</div>
+            <div class="stock-detail" id="detail-2330">
+                <span>開: -- / 高: --</span>
+                <span>低: -- / 量: --</span>
             </div>
         </div>
 
-        <!-- 0050 元大台灣50 -->
-        <div class="card">
-            <div class="tradingview-widget-container">
-                <div class="tradingview-widget-container__widget"></div>
-                <script type="text/javascript" src="https://tradingview.com" async>
-                {
-                    "symbol": "TWSE:0050",
-                    "width": "100%",
-                    "isTransparent": true,
-                    "colorTheme": "dark",
-                    "locale": "zh_TW"
-                }
-                </script>
+        <div class="card" id="card-0050" onclick="selectStock('0050')">
+            <div class="stock-header">
+                <span class="stock-name">元大台灣50</span>
+                <span class="stock-code">0050</span>
+            </div>
+            <div class="stock-price" id="price-0050">--</div>
+            <div class="stock-change" id="change-0050">讀取報價中...</div>
+            <div class="stock-detail" id="detail-0050">
+                <span>開: -- / 高: --</span>
+                <span>低: -- / 量: --</span>
             </div>
         </div>
 
-        <!-- 2317 鴻海 -->
-        <div class="card">
-            <div class="tradingview-widget-container">
-                <div class="tradingview-widget-container__widget"></div>
-                <script type="text/javascript" src="https://tradingview.com" async>
-                {
-                    "symbol": "TWSE:2317",
-                    "width": "100%",
-                    "isTransparent": true,
-                    "colorTheme": "dark",
-                    "locale": "zh_TW"
-                }
-                </script>
+        <div class="card" id="card-2317" onclick="selectStock('2317')">
+            <div class="stock-header">
+                <span class="stock-name">鴻海</span>
+                <span class="stock-code">2317</span>
+            </div>
+            <div class="stock-price" id="price-2317">--</div>
+            <div class="stock-change" id="change-2317">讀取報價中...</div>
+            <div class="stock-detail" id="detail-2317">
+                <span>開: -- / 高: --</span>
+                <span>低: -- / 量: --</span>
             </div>
         </div>
     </div>
 
-    <!-- 下方：即時互動趨勢圖 -->
+    <!-- 走勢圖區塊 -->
     <div class="chart-section">
         <div class="chart-header">
-            <button class="tab-btn active" onclick="loadChart('TWSE:2330', this)">2330 台積電</button>
-            <button class="tab-btn" onclick="loadChart('TWSE:0050', this)">0050 元大台灣50</button>
-            <button class="tab-btn" onclick="loadChart('TWSE:2317', this)">2317 鴻海</button>
+            <div class="chart-title" id="chart-title">2330 台積電 - 交易日走勢圖</div>
+            <div class="chart-sub" id="chart-sub">資料來源：TWSE 證交所即時報價 + 分時走勢</div>
         </div>
-        <div id="tv-chart-container"></div>
+        <div class="canvas-container">
+            <canvas id="stockChart"></canvas>
+        </div>
     </div>
 
-    <!-- 載入 TradingView 主圖表腳本 -->
-    <script type="text/javascript" src="https://tradingview.com"></script>
-    <script type="text/javascript">
-        // 初始化與切換圖表的函式
-        function loadChart(symbol, btnElement) {
-            // 更新按鈕樣式
-            if (btnElement) {
-                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-                btnElement.classList.add('active');
-            }
+    <script>
+        const STOCKS = [
+            { code: '2330', name: '台積電' },
+            { code: '0050', name: '元大台灣50' },
+            { code: '2317', name: '鴻海' }
+        ];
 
-            // 建立 TradingView 互動圖表
-            new TradingView.widget({
-                "autosize": true,
-                "symbol": symbol,
-                "interval": "5",                // 預設 5 分鐘走勢（可自行改為 "1", "15", "D" 日線）
-                "timezone": "Asia/Taipei",      // 台北時區
-                "theme": "dark",                // 深色看盤模式
-                "style": "3",                   // 3 = 面積趨勢圖 (Area)，若想看 K 線可改為 "1"
-                "locale": "zh_TW",
-                "toolbar_bg": "#1e222d",
-                "enable_publishing": false,
-                "hide_top_toolbar": false,
-                "save_image": false,
-                "container_id": "tv-chart-container",
-                "overrides": {
-                    // 設定台股習慣：紅漲綠跌
-                    "mainSeriesProperties.areaStyle.color1": "rgba(239, 83, 80, 0.28)",
-                    "mainSeriesProperties.areaStyle.color2": "rgba(239, 83, 80, 0.05)",
-                    "mainSeriesProperties.areaStyle.linecolor": "#ef5350",
-                    "mainSeriesProperties.candleStyle.upColor": "#ef5350",
-                    "mainSeriesProperties.candleStyle.downColor": "#26a69a",
-                    "mainSeriesProperties.candleStyle.borderUpColor": "#ef5350",
-                    "mainSeriesProperties.candleStyle.borderDownColor": "#26a69a",
-                    "mainSeriesProperties.candleStyle.wickUpColor": "#ef5350",
-                    "mainSeriesProperties.candleStyle.wickDownColor": "#26a69a"
+        // 多組公開 CORS 代理伺服器，自動輪詢備援
+        const PROXIES = [
+            url => `https://allorigins.win{encodeURIComponent(url)}`,
+            url => `https://corsproxy.io{encodeURIComponent(url)}`,
+            url => `https://codetabs.com{encodeURIComponent(url)}`
+        ];
+
+        let selectedCode = '2330';
+        let chartInstance = null;
+        let isFetching = false;
+
+        // 儲存各股狀態與走勢資料
+        const state = {
+            '2330': { price: null, prevClose: null, times: [], prices: [] },
+            '0050': { price: null, prevClose: null, times: [], prices: [] },
+            '2317': { price: null, prevClose: null, times: [], prices: [] }
+        };
+
+        // 帶有超時機制與自動切換代理的 Fetch 函式
+        async function fetchWithFallback(targetUrl) {
+            for (let i = 0; i < PROXIES.length; i++) {
+                const proxyUrl = PROXIES[i](targetUrl);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4500); // 4.5秒超時自動換下一組
+
+                try {
+                    const res = await fetch(proxyUrl, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (!res.ok) continue;
+                    const text = await res.text();
+                    return JSON.parse(text);
+                } catch (e) {
+                    clearTimeout(timeoutId);
+                    // 繼續嘗試下一組 Proxy
                 }
-            });
+            }
+            throw new Error('所有備援線路皆忙碌中');
         }
 
-        // 網頁開啟時預設載入 2330 台積電趨勢圖
-        window.onload = function() {
-            loadChart('TWSE:2330', document.querySelector('.tab-btn'));
-        };
-    </script>
+        // 1. 抓取證交所 (TWSE) 即時報價快照
+        async function fetchTWSEQuote() {
+            const exCh = STOCKS.map(s => `tse_${s.code}.tw`).join('|');
+            const twseUrl = `https://twse.com.tw{exCh}&json=1&delay=0&_=${Date.now()}`;
+            
+            const data = await fetchWithFallback(twseUrl);
+            if (!data || !data.msgArray || data.msgArray.length === 0) {
+                throw new Error('證交所無回傳資料');
+            }
 
-</body>
-</html>
+            data.msgArray.forEach(item => {
+                const code = item.c;
+                const prevClose = parseFloat(item.y);
+                const open = item.o !== '-' ? parseFloat(item.o).toFixed(2) : '--';
+                const high = item.h !== '-' ? parseFloat(item.h).toFixed(2) : '--';
+                const low = item.l !== '-' ? parseFloat(item.l).toFixed(2) : '--';
+                const volume = item.v !== '-' ? item.v : '--';
+
+                // 盤後或撮合中 item.z 會是 "-"，自動取最佳五檔或昨收
+                let currentPrice = parseFloat(item.z);
+                if (isNaN(currentPrice)) {
+                    const bid = item.b ? parseFloat(item.b.split('_')[0]) : NaN;
+                    const ask = item.a ? parseFloat(item.a.split('_')[0]) : NaN;
+                    currentPrice = !isNaN(bid) ? bid : (!isNaN(ask) ? ask : prevClose);
+                }
+
+                state[code].price = currentPrice;
+                state[code].prevClose = prevClose;
+
+                // 更新卡片畫面
+                updateCardUI(code, currentPrice, prevClose, open, high, low, volume);
+
+                // 若已有走勢線，將最新即時點位補在最末端
+                if (state[code].times.length > 0 && item.t) {
+                    const shortTime = item.t.slice(0, 5); // HH:MM
+                    const lastTime = state[code].times[state[code].times.length - 1];
+                    if (lastTime === shortTime) { state[code].prices[state[code].prices.length - 1] = currentPrice;
+} else {
+state[code].times.push(shortTime);
+state[code].prices.push(currentPrice);
+}
+}
+});
+return data.msgArray[0].t || '';
+}
+
+        // 2. 抓取當日完整歷史分時走勢（確保休市或剛開網頁時就有完整折線）
+async function fetchIntradayChart(code) {
+const chartUrl = https://yahoo.com{code}.TW?interval=5m&range=1d&_=${Date.now()};
+try {
+const data = await fetchWithFallback(chartUrl);
+const result = data.chart.result[0];
+const timestamps = result.timestamp || [];
+const closes = result.indicators.quote[0].close || [];
+const prevClose = result.meta.chartPreviousClose;
+const times = [];
+const prices = [];
+for (let i = 0; i < timestamps.length; i++) {
+if (closes[i] !== null) {
+const d = new Date(timestamps[i] * 1000);
+const hh = String(d.getHours()).padStart(2, '0');
+const mm = String(d.getMinutes()).padStart(2, '0');
+times.push(${hh}:${mm});
+prices.push(Number(closes[i].toFixed(2)));
+}
+}
+if (times.length > 0) {
+state[code].times = times;
+state[code].prices = prices;
+if (!state[code].prevClose) state[code].prevClose = prevClose;
+// 若證交所報價尚未載入，先用走勢圖最後一筆顯示在卡片上
+if (!state[code].price) {
+const lastP = prices[prices.length - 1];
+updateCardUI(code, lastP, prevClose, '--', '--', '--', '--');
+}
+}
+} catch (e) {
+console.warn(載入 ${code} 歷史分時失敗, e);
+}
+}
+function updateCardUI(code, price, prevClose, open, high, low, volume) {
+const change = price - prevClose;
+const pct = (change / prevClose) * 100;
+const sign = change > 0 ? '▲ +' : (change < 0 ? '▼ ' : '');
+const cls = change > 0 ? 'up' : (change < 0 ? 'down' : 'flat');
+const priceEl = document.getElementById(price-${code});
+const changeEl = document.getElementById(change-${code});
+const detailEl = document.getElementById(detail-${code});
+priceEl.innerText = price.toFixed(2);
+priceEl.className = stock-price ${cls};
+changeEl.className = stock-change ${cls};
+changeEl.innerText = ${sign}${change.toFixed(2)} (${pct.toFixed(2)}%);
+if (open !== '--') {
+detailEl.innerHTML = <span>開: ${open} / 高: ${high}</span><span>低: ${low} / 量: ${volume}張</span>;
+}
+}
+        function selectStock(code) {
+selectedCode = code;
+document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+document.getElementById(card-${code}).classList.add('active');
+renderChart();
+}
+function renderChart() {
+const stockObj = STOCKS.find(s => s.code === selectedCode);
+const store = state[selectedCode];
+document.getElementById('chart-title').innerText = ${selectedCode} ${stockObj.name} - 交易日走勢圖;
+const lastPrice = store.prices[store.prices.length - 1] || store.prevClose || 0;
+const prevClose = store.prevClose || lastPrice;
+const isUp = lastPrice >= prevClose;
+const lineColor = isUp ? '#ef5350' : '#26a69a';
+const fillColor = isUp ? 'rgba(239, 83, 80, 0.15)' : 'rgba(38, 166, 154, 0.15)';
+const ctx = document.getElementById('stockChart').getContext('2d');
+if (!chartInstance) {
+chartInstance = new Chart(ctx, {
+type: 'line',
+data: {
+labels: store.times,
+datasets: [{
+label: '價格',
+data: store.prices,
+borderColor: lineColor,
+backgroundColor: fillColor,
+borderWidth: 2,
+fill: true,
+pointRadius: 0,
+pointHitRadius: 10,
+tension: 0.1
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: false,
+animation: false,
+plugins: { legend: { display: false } },
+scales: {
+x: { grid: { color: '#2a2e39' }, ticks: { color: '#868993', maxTicksLimit: 10 } },
+y: { grid: { color: '#2a2e39' }, ticks: { color: '#868993' } }
+}
+}
+});
+} else {
+chartInstance.data.labels = store.times;
+chartInstance.data.datasets[0].data = store.prices;
+chartInstance.data.datasets[0].borderColor = lineColor;
+chartInstance.data.datasets[0].backgroundColor = fillColor;
+chartInstance.update();
+}
+}
+        // 主更新流程
+async function refreshData() {
+if (isFetching) return;
+isFetching = true;
+const badge = document.getElementById('status-badge');
+const btn = document.getElementById('refresh-btn');
+btn.disabled = true;
+try {
+// 若某檔股票還沒有歷史走勢線，先抓取補齊
+for (const s of STOCKS) {
+if (state[s.code].times.length === 0) {
+await fetchIntradayChart(s.code);
+}
+}
+renderChart();
+// 抓取證交所最新即時報價
+const twseTime = await fetchTWSEQuote();
+renderChart();
+const nowStr = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+badge.className = 'status-badge ok';
+badge.innerText = ● 已連線證交所 (${twseTime}) | 更新於 ${nowStr};
+} catch (err) {
+badge.className = 'status-badge err';
+badge.innerText = ▲ ${err.message}，稍後自動重試;
+} finally {
+isFetching = false;
+btn.disabled = false;
+}
+}
+function manualRefresh() {
+refreshData();
+}
+// 啟動：立即執行一次，之後每 10 秒自動更新
+refreshData();
+setInterval(refreshData, 2000);
