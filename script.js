@@ -14,23 +14,25 @@ if (footer) {
 }
 
 // 自動更新目前時間 2026.11.13 21:07
-function updateClock() {
-    const now = new Date();
+document.addEventListener("DOMContentLoaded", function () {
+    // 找到網頁上顯示時間的位置
+    const clock = document.getElementById("clock");
 
-    const time = now.toLocaleString("zh-TW", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        weekday: "long",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false
-    });
+    // 更新時間
+    function updateClock() {
+        const now = new Date();
 
-    document.getElementById("clock").textContent = time;
-}
+        clock.textContent = now.toLocaleTimeString("zh-TW", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false
+        });
+    }
 
-// 每秒更新一次
-updateClock();
-setInterval(updateClock, 1000);
+    // 立即更新一次
+    updateClock();
+
+    // 每秒更新一次
+    setInterval(updateClock, 100);
+});
