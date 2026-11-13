@@ -4,68 +4,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>yclan-hub</title>
+    <title>首頁 | My Portfolio</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <header>
-        <h1>我的個人網站</h1>
-        <nav>
-            <a href="#about">關於我</a>
-            <a href="#skills">專業技能</a>
-            <a href="#projects">作品集</a>
-            <a href="#contact">聯絡方式</a>
+    <header class="header">
+        <a href="index.html" class="logo">MY PORTFOLIO</a>
+
+        <nav class="navbar">
+            <a href="index.html" class="active">首頁</a>
+            <a href="about.html">關於我</a>
+            <a href="skills.html">專業技能</a>
+            <a href="projects.html">作品集</a>
+            <a href="contact.html">聯絡方式</a>
         </nav>
     </header>
 
     <main>
-        <section id="about">
-            <h2>關於我</h2>
-            <p>你好！歡迎來到我的個人網站。</p>
+        <section class="hero">
+            <p class="subtitle">WELCOME TO MY WEBSITE</p>
+            <h1>你好，歡迎來到我的網站。</h1>
+            <h2>My Personal Portfolio</h2>
+            <p>
+                這裡記錄我的學習歷程、技術探索，
+                以及未來的專案與作品。
+            </p>
+
+            <a href="about.html" class="main-button">
+                了解更多 →
+            </a>
         </section>
 
-        
-        <section id="fmaily">
-            <h2>我的親戚</h2>
-            <ul>
-                <li>奶蛙</li>
-                <li>奶龍</li>
-                <li>奶狗</li>
-                <li>和寶貝你</li>
-            </ul>
-        </section>
-        
-        
-        
-        
-        
-        
-        <section id="skills">
-            <h2>專業技能</h2>
-            <ul>
-                <li>HTML</li>
-                <li>CSS</li>
-                <li>JavaScript</li>
-                <li>C++</li>
-            </ul>
-        </section>
-
-        <section id="projects">
-            <h2>作品集</h2>
-            <p>目前正在累積作品，敬請期待。</p>
-        </section>
-
-        <section id="contact">
-            <h2>聯絡方式</h2>
-            <p>電子郵件：lan.yi.chi.970708@gmail.com</p>
+        <section class="home-intro">
+            <h2>Explore My Website</h2>
+            <p>透過導覽選單，認識我的不同面向。</p>
         </section>
     </main>
 
     <footer>
-        <p>© 2026 </p>
-        <p>電子郵件：lan.yi.chi.970708@gmail.com</p>
-        <p>臺北時間：<span id="clock">載入中...</span></p>
+        <p>© 2026 My Personal Website</p>
     </footer>
 
     <script src="script.js"></script>
