@@ -1,9 +1,8 @@
 
-/* 全站基本設定 */
 * {
-    box-sizing: border-box;
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
 }
 
 html {
@@ -12,89 +11,166 @@ html {
 
 body {
     font-family: Arial, "Microsoft JhengHei", sans-serif;
+    background: #f5f7fb;
+    color: #1e293b;
     line-height: 1.8;
-    color: #333;
-    background-color: #f5f7fa;
 }
 
-/* 導覽列 */
-header {
-    background-color: #1e293b;
-    color: white;
-    padding: 25px 20px;
-    text-align: center;
-}
-
-header h1 {
-    margin-bottom: 12px;
-}
-
-nav {
+/* 頂部導覽列 */
+.header {
+    width: 100%;
+    min-height: 80px;
+    padding: 15px 7%;
+    background: #17243a;
     display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 25px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
 }
 
-nav a {
+.logo {
     color: white;
+    font-size: 21px;
+    font-weight: bold;
     text-decoration: none;
-    transition: color 0.3s;
+    white-space: nowrap;
 }
 
-nav a:hover {
+.navbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 25px;
+    flex-wrap: wrap;
+}
+
+.navbar a {
+    color: #cbd5e1;
+    text-decoration: none;
+    font-size: 14px;
+    transition: 0.3s;
+}
+
+.navbar a:hover,
+.navbar a.active {
     color: #60a5fa;
 }
 
-/* 主要內容 */
-main {
-    max-width: 1000px;
-    margin: 40px auto;
-    padding: 0 20px;
+/* 首頁主視覺 */
+.hero {
+    min-height: 520px;
+    padding: 100px 10%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    background: linear-gradient(135deg, #eaf1ff, #ffffff);
 }
 
-section {
-    background-color: white;
-    padding: 35px;
-    margin-bottom: 25px;
-    border-radius: 12px;
-    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.05);
+.subtitle {
+    color: #2563eb;
+    font-weight: bold;
+    letter-spacing: 2px;
 }
 
-section h2 {
+.hero h1 {
+    font-size: 38px;
+    margin: 15px 0;
+}
+
+.hero h2 {
+    font-size: 24px;
     color: #2563eb;
     margin-bottom: 15px;
-    border-bottom: 2px solid #e5e7eb;
-    padding-bottom: 10px;
 }
 
-ul {
-    padding-left: 25px;
+.hero > p:not(.subtitle) {
+    max-width: 600px;
+    color: #64748b;
+}
+
+.main-button {
+    display: inline-block;
+    margin-top: 25px;
+    padding: 12px 28px;
+    border-radius: 8px;
+    background: #2563eb;
+    color: white;
+    text-decoration: none;
+    transition: 0.3s;
+}
+
+.main-button:hover {
+    background: #1d4ed8;
+    transform: translateY(-2px);
+}
+
+/* 首頁介紹 */
+.home-intro {
+    text-align: center;
+    padding: 65px 20px;
+}
+
+.home-intro h2 {
+    font-size: 28px;
+    margin-bottom: 10px;
+}
+
+.home-intro p {
+    color: #64748b;
+}
+
+/* 內頁通用 */
+.page-container {
+    max-width: 1100px;
+    margin: 60px auto;
+    padding: 0 25px;
+}
+
+.page-title {
+    font-size: 32px;
+    margin-bottom: 20px;
+    color: #1e40af;
+}
+
+.content-card {
+    background: white;
+    padding: 30px;
+    margin-bottom: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.04);
 }
 
 /* 頁尾 */
 footer {
-    background-color: #1e293b;
+    background: #17243a;
     color: white;
     text-align: center;
-    padding: 20px;
+    padding: 22px;
 }
 
 /* 手機版 */
-@media (max-width: 600px) {
-    header {
-        padding: 20px 10px;
+@media (max-width: 760px) {
+    .header {
+        flex-direction: column;
+        padding: 20px;
     }
 
-    nav {
-        gap: 12px;
+    .navbar {
+        justify-content: center;
+        gap: 15px;
     }
 
-    main {
-        margin: 20px auto;
+    .hero {
+        min-height: 420px;
+        padding: 70px 8%;
     }
 
-    section {
-        padding: 22px;
+    .hero h1 {
+        font-size: 28px;
+    }
+
+    .page-container {
+        margin: 35px auto;
     }
 }
