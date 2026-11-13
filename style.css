@@ -1,0 +1,100 @@
+
+/* 全站基本設定 */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: Arial, "Microsoft JhengHei", sans-serif;
+    line-height: 1.8;
+    color: #333;
+    background-color: #f5f7fa;
+}
+
+/* 導覽列 */
+header {
+    background-color: #1e293b;
+    color: white;
+    padding: 25px 20px;
+    text-align: center;
+}
+
+header h1 {
+    margin-bottom: 12px;
+}
+
+nav {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 25px;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+nav a:hover {
+    color: #60a5fa;
+}
+
+/* 主要內容 */
+main {
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+section {
+    background-color: white;
+    padding: 35px;
+    margin-bottom: 25px;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.05);
+}
+
+section h2 {
+    color: #2563eb;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 10px;
+}
+
+ul {
+    padding-left: 25px;
+}
+
+/* 頁尾 */
+footer {
+    background-color: #1e293b;
+    color: white;
+    text-align: center;
+    padding: 20px;
+}
+
+/* 手機版 */
+@media (max-width: 600px) {
+    header {
+        padding: 20px 10px;
+    }
+
+    nav {
+        gap: 12px;
+    }
+
+    main {
+        margin: 20px auto;
+    }
+
+    section {
+        padding: 22px;
+    }
+}
