@@ -116,8 +116,8 @@
     <header>
         <h1>🇹🇼 台股即時看盤看板</h1>
         <div class="controls">
-            <span id="status-badge" class="status-badge">初始化連線中...</span>
-            <button id="refresh-btn" class="btn-refresh" onclick="manualRefresh()">立即刷新</button>
+            <span id="status-badge" class="status-badge">連線中...</span>
+            <button id="refresh-btn" class="btn-refresh" onclick="refreshData()">立即刷新</button>
         </div>
     </header>
 
@@ -166,8 +166,8 @@
     <!-- 走勢圖區塊 -->
     <div class="chart-section">
         <div class="chart-header">
-            <div class="chart-title" id="chart-title">2330 台積電 - 交易日走勢圖</div>
-            <div class="chart-sub" id="chart-sub">資料來源：TWSE 證交所即時報價 + 分時走勢</div>
+            <div class="chart-title" id="chart-title">2330 台積電 - 近期走勢圖</div>
+            <div class="chart-sub" id="chart-sub">資料來源：TWSE 證交所即時報價 + 歷史走勢</div>
         </div>
         <div class="canvas-container">
             <canvas id="stockChart"></canvas>
@@ -181,10 +181,10 @@
             { code: '2317', name: '鴻海' }
         ];
 
-        // 多組公開 CORS 代理伺服器，自動輪詢備援
+        // 備援代理清單（用於證交所 MIS 介面）
         const PROXIES = [
-            url => `https://allorigins.win{encodeURIComponent(url)}`,
             url => `https://corsproxy.io{encodeURIComponent(url)}`,
+            url => `https://allorigins.win{encodeURIComponent(url)}`,
             url => `https://codetabs.com{encodeURIComponent(url)}`
         ];
 
@@ -192,19 +192,17 @@
         let chartInstance = null;
         let isFetching = false;
 
-        // 儲存各股狀態與走勢資料
         const state = {
             '2330': { price: null, prevClose: null, times: [], prices: [] },
             '0050': { price: null, prevClose: null, times: [], prices: [] },
             '2317': { price: null, prevClose: null, times: [], prices: [] }
         };
 
-        // 帶有超時機制與自動切換代理的 Fetch 函式
         async function fetchWithFallback(targetUrl) {
             for (let i = 0; i < PROXIES.length; i++) {
                 const proxyUrl = PROXIES[i](targetUrl);
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 4500); // 4.5秒超時自動換下一組
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
 
                 try {
                     const res = await fetch(proxyUrl, { signal: controller.signal });
@@ -214,95 +212,97 @@
                     return JSON.parse(text);
                 } catch (e) {
                     clearTimeout(timeoutId);
-                    // 繼續嘗試下一組 Proxy
                 }
             }
-            throw new Error('所有備援線路皆忙碌中');
+            throw new Error('代理連線逾時');
         }
 
-        // 1. 抓取證交所 (TWSE) 即時報價快照
-        async function fetchTWSEQuote() {
-            const exCh = STOCKS.map(s => `tse_${s.code}.tw`).join('|');
-            const twseUrl = `https://twse.com.tw{exCh}&json=1&delay=0&_=${Date.now()}`;
-            
-            const data = await fetchWithFallback(twseUrl);
-            if (!data || !data.msgArray || data.msgArray.length === 0) {
-                throw new Error('證交所無回傳資料');
-            }
+        // 1. 直接連線 FinMind 台灣股市開放 API（原生支援 CORS，無需 Proxy，保證有歷史日線與最新收盤數據）
+        async function fetchFinMindHistory(code) {
+            // 抓取過去 30 天日線數據作為走勢圖基準
+            const d = new Date();
+            d.setDate(d.getDate() - 45);
+            const startDate = d.toISOString().split('T')[0];
 
-            data.msgArray.forEach(item => {
-                const code = item.c;
-                const prevClose = parseFloat(item.y);
-                const open = item.o !== '-' ? parseFloat(item.o).toFixed(2) : '--';
-                const high = item.h !== '-' ? parseFloat(item.h).toFixed(2) : '--';
-                const low = item.l !== '-' ? parseFloat(item.l).toFixed(2) : '--';
-                const volume = item.v !== '-' ? item.v : '--';
+            const url = `https://finmindtrade.com{code}&start_date=${startDate}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('FinMind API 連線失敗');
+            const json = await res.json();
 
-                // 盤後或撮合中 item.z 會是 "-"，自動取最佳五檔或昨收
-                let currentPrice = parseFloat(item.z);
-                if (isNaN(currentPrice)) {
-                    const bid = item.b ? parseFloat(item.b.split('_')[0]) : NaN;
-                    const ask = item.a ? parseFloat(item.a.split('_')[0]) : NaN;
-                    currentPrice = !isNaN(bid) ? bid : (!isNaN(ask) ? ask : prevClose);
+            if (json.data && json.data.length > 0) {
+                const records = json.data;
+                const times = records.map(r => r.date.slice(5)); // MM-DD
+                const prices = records.map(r => Number(r.close));
+
+                state[code].times = times;
+                state[code].prices = prices;
+
+                const latest = records[records.length - 1];
+                const prev = records.length > 1 ? records[records.length - 2] : latest;
+                const prevClose = Number(prev.close);
+                const closePrice = Number(latest.close);
+
+                // 如果證交所即時報價還沒抓到，先用 FinMind 最新收盤價填入卡片
+                if (!state[code].price) {
+                    state[code].price = closePrice;
+                    state[code].prevClose = prevClose;
+                    const volSheets = Math.round(Number(latest.Trading_Volume) / 1000);
+                    updateCardUI(
+                        code,
+                        closePrice,
+                        prevClose,
+                        Number(latest.open).toFixed(2),
+                        Number(latest.max).toFixed(2),
+                        Number(latest.min).toFixed(2),
+                        volSheets.toLocaleString()
+                    );
                 }
+                return latest.date;
+            }
+            return '';
+        }
 
-                state[code].price = currentPrice;
-                state[code].prevClose = prevClose;
-
-                // 更新卡片畫面
-                updateCardUI(code, currentPrice, prevClose, open, high, low, volume);
-
-                // 若已有走勢線，將最新即時點位補在最末端
-                if (state[code].times.length > 0 && item.t) {
-                    const shortTime = item.t.slice(0, 5); // HH:MM
-                    const lastTime = state[code].times[state[code].times.length - 1];
-                    if (lastTime === shortTime) { state[code].prices[state[code].prices.length - 1] = currentPrice;
+        // 2. 抓取證交所 (TWSE) 盤中即時快照覆蓋最新價格
+async function fetchTWSEQuote() {
+const exCh = STOCKS.map(s => tse_${s.code}.tw).join('|');
+const twseUrl = https://twse.com.tw{exCh}&json=1&delay=0&_=${Date.now()};
+const data = await fetchWithFallback(twseUrl);
+if (!data || !data.msgArray || data.msgArray.length === 0) {
+throw new Error('證交所無回傳');
+}
+data.msgArray.forEach(item => {
+const code = item.c;
+const prevClose = parseFloat(item.y);
+const open = item.o !== '-' ? parseFloat(item.o).toFixed(2) : '--';
+const high = item.h !== '-' ? parseFloat(item.h).toFixed(2) : '--';
+const low = item.l !== '-' ? parseFloat(item.l).toFixed(2) : '--';
+const volume = item.v !== '-' ? Number(item.v).toLocaleString() : '--';
+let currentPrice = parseFloat(item.z);
+if (isNaN(currentPrice)) {
+const bid = item.b ? parseFloat(item.b.split('')[0]) : NaN;
+const ask = item.a ? parseFloat(item.a.split('')[0]) : NaN;
+currentPrice = !isNaN(bid) ? bid : (!isNaN(ask) ? ask : prevClose);
+}
+state[code].price = currentPrice;
+state[code].prevClose = prevClose;
+updateCardUI(code, currentPrice, prevClose, open, high, low, volume);
+// 將即時最新價更新到走勢圖最後一點
+if (state[code].times.length > 0 && item.d) {
+const mmdd = ${item.d.slice(4, 6)}-${item.d.slice(6, 8)};
+const lastLabel = state[code].times[state[code].times.length - 1];
+if (lastLabel === mmdd) {
+state[code].prices[state[code].prices.length - 1] = currentPrice;
 } else {
-state[code].times.push(shortTime);
+state[code].times.push(mmdd);
 state[code].prices.push(currentPrice);
 }
 }
 });
-return data.msgArray[0].t || '';
-}
-
-        // 2. 抓取當日完整歷史分時走勢（確保休市或剛開網頁時就有完整折線）
-async function fetchIntradayChart(code) {
-const chartUrl = https://yahoo.com{code}.TW?interval=5m&range=1d&_=${Date.now()};
-try {
-const data = await fetchWithFallback(chartUrl);
-const result = data.chart.result[0];
-const timestamps = result.timestamp || [];
-const closes = result.indicators.quote[0].close || [];
-const prevClose = result.meta.chartPreviousClose;
-const times = [];
-const prices = [];
-for (let i = 0; i < timestamps.length; i++) {
-if (closes[i] !== null) {
-const d = new Date(timestamps[i] * 1000);
-const hh = String(d.getHours()).padStart(2, '0');
-const mm = String(d.getMinutes()).padStart(2, '0');
-times.push(${hh}:${mm});
-prices.push(Number(closes[i].toFixed(2)));
-}
-}
-if (times.length > 0) {
-state[code].times = times;
-state[code].prices = prices;
-if (!state[code].prevClose) state[code].prevClose = prevClose;
-// 若證交所報價尚未載入，先用走勢圖最後一筆顯示在卡片上
-if (!state[code].price) {
-const lastP = prices[prices.length - 1];
-updateCardUI(code, lastP, prevClose, '--', '--', '--', '--');
-}
-}
-} catch (e) {
-console.warn(載入 ${code} 歷史分時失敗, e);
-}
+return ${data.msgArray[0].d} ${data.msgArray[0].t};
 }
 function updateCardUI(code, price, prevClose, open, high, low, volume) {
 const change = price - prevClose;
-const pct = (change / prevClose) * 100;
+const pct = prevClose ? (change / prevClose) * 100 : 0;
 const sign = change > 0 ? '▲ +' : (change < 0 ? '▼ ' : '');
 const cls = change > 0 ? 'up' : (change < 0 ? 'down' : 'flat');
 const priceEl = document.getElementById(price-${code});
@@ -316,19 +316,19 @@ if (open !== '--') {
 detailEl.innerHTML = <span>開: ${open} / 高: ${high}</span><span>低: ${low} / 量: ${volume}張</span>;
 }
 }
-        function selectStock(code) {
+function selectStock(code) {
 selectedCode = code;
 document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
 document.getElementById(card-${code}).classList.add('active');
 renderChart();
 }
-function renderChart() {
+        function renderChart() {
 const stockObj = STOCKS.find(s => s.code === selectedCode);
 const store = state[selectedCode];
-document.getElementById('chart-title').innerText = ${selectedCode} ${stockObj.name} - 交易日走勢圖;
+document.getElementById('chart-title').innerText = ${selectedCode} ${stockObj.name} - 近期收盤與即時走勢圖;
 const lastPrice = store.prices[store.prices.length - 1] || store.prevClose || 0;
-const prevClose = store.prevClose || lastPrice;
-const isUp = lastPrice >= prevClose;
+const firstPrice = store.prices[0] || lastPrice;
+const isUp = lastPrice >= firstPrice;
 const lineColor = isUp ? '#ef5350' : '#26a69a';
 const fillColor = isUp ? 'rgba(239, 83, 80, 0.15)' : 'rgba(38, 166, 154, 0.15)';
 const ctx = document.getElementById('stockChart').getContext('2d');
@@ -344,8 +344,8 @@ borderColor: lineColor,
 backgroundColor: fillColor,
 borderWidth: 2,
 fill: true,
-pointRadius: 0,
-pointHitRadius: 10,
+pointRadius: 3,
+pointHoverRadius: 6,
 tension: 0.1
 }]
 },
@@ -355,7 +355,7 @@ maintainAspectRatio: false,
 animation: false,
 plugins: { legend: { display: false } },
 scales: {
-x: { grid: { color: '#2a2e39' }, ticks: { color: '#868993', maxTicksLimit: 10 } },
+x: { grid: { color: '#2a2e39' }, ticks: { color: '#868993' } },
 y: { grid: { color: '#2a2e39' }, ticks: { color: '#868993' } }
 }
 }
@@ -368,38 +368,43 @@ chartInstance.data.datasets[0].backgroundColor = fillColor;
 chartInstance.update();
 }
 }
-        // 主更新流程
 async function refreshData() {
 if (isFetching) return;
 isFetching = true;
 const badge = document.getElementById('status-badge');
 const btn = document.getElementById('refresh-btn');
 btn.disabled = true;
+let latestDate = '';
 try {
-// 若某檔股票還沒有歷史走勢線，先抓取補齊
+// 步驟 1：從原生支援 CORS 的 FinMind 載入歷史走勢與最新收盤數據（確保 100% 有畫面）
 for (const s of STOCKS) {
 if (state[s.code].times.length === 0) {
-await fetchIntradayChart(s.code);
+const d = await fetchFinMindHistory(s.code);
+if (d) latestDate = d;
 }
 }
 renderChart();
-// 抓取證交所最新即時報價
+// 步驟 2：嘗試透過證交所 TWSE API 取得盤中即時報價覆蓋
+try {
 const twseTime = await fetchTWSEQuote();
 renderChart();
 const nowStr = new Date().toLocaleTimeString('zh-TW', { hour12: false });
 badge.className = 'status-badge ok';
-badge.innerText = ● 已連線證交所 (${twseTime}) | 更新於 ${nowStr};
+badge.innerText = ● 證交所即時 (${twseTime}) | 刷新 ${nowStr};
+} catch (twseErr) {
+// 即使證交所代理暫時忙碌，畫面仍保有 FinMind 的最新數據與完整圖表
+const nowStr = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+badge.className = 'status-badge ok';
+badge.innerText = ● 已載入最新收盤 (${latestDate}) | 刷新 ${nowStr};
+}
 } catch (err) {
 badge.className = 'status-badge err';
-badge.innerText = ▲ ${err.message}，稍後自動重試;
+badge.innerText = ▲ 資料載入失敗: ${err.message};
 } finally {
 isFetching = false;
 btn.disabled = false;
 }
 }
-function manualRefresh() {
+        // 啟動並每 15 秒自動刷新
 refreshData();
-}
-// 啟動：立即執行一次，之後每 10 秒自動更新
-refreshData();
-setInterval(refreshData, 2000);
+setInterval(refreshData, 15000);
