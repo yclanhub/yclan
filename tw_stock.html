@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台股即時看盤看板 (2330 / 0050 / 2317)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif;
+            background-color: #131722;
+            color: #d1d4dc;
+            padding: 20px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #2a2e39;
+        }
+        h1 {
+            font-size: 22px;
+            color: #ffffff;
+        }
+        .status {
+            font-size: 13px;
+            color: #868993;
+        }
+        /* 上方三張報價卡片排版 */
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .card {
+            background-color: #1e222d;
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid #2a2e39;
+            height: 150px;
+        }
+        /* 下方大型趨勢圖區塊 */
+        .chart-section {
+            background-color: #1e222d;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #2a2e39;
+        }
+        .chart-header {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .tab-btn {
+            background-color: #2a2e39;
+            color: #d1d4dc;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .tab-btn:hover {
+            background-color: #363a45;
+        }
+        .tab-btn.active {
+            background-color: #2962ff;
+            color: #ffffff;
+        }
+        #tv-chart-container {
+            width: 100%;
+            height: 500px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>📈 台股即時追蹤看板</h1>
+        <div class="status">資料來源：TradingView（盤中自動更新）</div>
+    </header>
+
+    <!-- 上方：三檔股票即時報價卡片 -->
+    <div class="cards-container">
+        <!-- 2330 台積電 -->
+        <div class="card">
+            <div class="tradingview-widget-container">
+                <div class="tradingview-widget-container__widget"></div>
+                <script type="text/javascript" src="https://tradingview.com" async>
+                {
+                    "symbol": "TWSE:2330",
+                    "width": "100%",
+                    "isTransparent": true,
+                    "colorTheme": "dark",
+                    "locale": "zh_TW"
+                }
+                </script>
+            </div>
+        </div>
+
+        <!-- 0050 元大台灣50 -->
+        <div class="card">
+            <div class="tradingview-widget-container">
+                <div class="tradingview-widget-container__widget"></div>
+                <script type="text/javascript" src="https://tradingview.com" async>
+                {
+                    "symbol": "TWSE:0050",
+                    "width": "100%",
+                    "isTransparent": true,
+                    "colorTheme": "dark",
+                    "locale": "zh_TW"
+                }
+                </script>
+            </div>
+        </div>
+
+        <!-- 2317 鴻海 -->
+        <div class="card">
+            <div class="tradingview-widget-container">
+                <div class="tradingview-widget-container__widget"></div>
+                <script type="text/javascript" src="https://tradingview.com" async>
+                {
+                    "symbol": "TWSE:2317",
+                    "width": "100%",
+                    "isTransparent": true,
+                    "colorTheme": "dark",
+                    "locale": "zh_TW"
+                }
+                </script>
+            </div>
+        </div>
+    </div>
+
+    <!-- 下方：即時互動趨勢圖 -->
+    <div class="chart-section">
+        <div class="chart-header">
+            <button class="tab-btn active" onclick="loadChart('TWSE:2330', this)">2330 台積電</button>
+            <button class="tab-btn" onclick="loadChart('TWSE:0050', this)">0050 元大台灣50</button>
+            <button class="tab-btn" onclick="loadChart('TWSE:2317', this)">2317 鴻海</button>
+        </div>
+        <div id="tv-chart-container"></div>
+    </div>
+
+    <!-- 載入 TradingView 主圖表腳本 -->
+    <script type="text/javascript" src="https://tradingview.com"></script>
+    <script type="text/javascript">
+        // 初始化與切換圖表的函式
+        function loadChart(symbol, btnElement) {
+            // 更新按鈕樣式
+            if (btnElement) {
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                btnElement.classList.add('active');
+            }
+
+            // 建立 TradingView 互動圖表
+            new TradingView.widget({
+                "autosize": true,
+                "symbol": symbol,
+                "interval": "5",                // 預設 5 分鐘走勢（可自行改為 "1", "15", "D" 日線）
+                "timezone": "Asia/Taipei",      // 台北時區
+                "theme": "dark",                // 深色看盤模式
+                "style": "3",                   // 3 = 面積趨勢圖 (Area)，若想看 K 線可改為 "1"
+                "locale": "zh_TW",
+                "toolbar_bg": "#1e222d",
+                "enable_publishing": false,
+                "hide_top_toolbar": false,
+                "save_image": false,
+                "container_id": "tv-chart-container",
+                "overrides": {
+                    // 設定台股習慣：紅漲綠跌
+                    "mainSeriesProperties.areaStyle.color1": "rgba(239, 83, 80, 0.28)",
+                    "mainSeriesProperties.areaStyle.color2": "rgba(239, 83, 80, 0.05)",
+                    "mainSeriesProperties.areaStyle.linecolor": "#ef5350",
+                    "mainSeriesProperties.candleStyle.upColor": "#ef5350",
+                    "mainSeriesProperties.candleStyle.downColor": "#26a69a",
+                    "mainSeriesProperties.candleStyle.borderUpColor": "#ef5350",
+                    "mainSeriesProperties.candleStyle.borderDownColor": "#26a69a",
+                    "mainSeriesProperties.candleStyle.wickUpColor": "#ef5350",
+                    "mainSeriesProperties.candleStyle.wickDownColor": "#26a69a"
+                }
+            });
+        }
+
+        // 網頁開啟時預設載入 2330 台積電趨勢圖
+        window.onload = function() {
+            loadChart('TWSE:2330', document.querySelector('.tab-btn'));
+        };
+    </script>
+
+</body>
+</html>
